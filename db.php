@@ -1,0 +1,17 @@
+<?php
+
+$host = "localhost";
+$db   = "crypto_tax";
+$user = "crypto_user";
+$pass = "crypto_password";
+
+try {
+  $pdo = new PDO(
+    "mysql:host=$host;dbname=$db;charset=utf8",
+    $user,
+    $pass
+  );
+  $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+  die("DB connection failed: " . $e->getMessage());
+}
