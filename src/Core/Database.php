@@ -2,12 +2,13 @@
 
 class Database
 {
-    public function __construct(private string $host, 
-                                private string $dbName, 
-                                private string $user, 
-                                private string $password)
-    {}
-
+     public function __construct(
+        private string $host,
+        private string $dbName,
+        private string $user,
+        private string $password
+    ) {}
+    
     public function getConnection(): PDO
     {
         $dsn = "mysql:host={$this->host};dbname={$this->dbName};charset=utf8mb4";

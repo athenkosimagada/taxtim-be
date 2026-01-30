@@ -1,9 +1,9 @@
 # Taxtim BE – Crypto Tax Backend API
 
 A **PHP 8.3 backend API** for managing crypto transactions.
-The project is designed as a **Docker-first REST-style service** and currently exposes a `/transactions` endpoint for testing and development.
+The project is designed as a **Docker-first REST-style service** and exposes a `/transactions` endpoint for creating and retrieving crypto transactions stored in a **MySQL database**.
 
-At this stage, the API uses **dummy (hard-coded) data** to validate routing, container setup, and request handling. The structure is intentionally prepared for replacing dummy data with real database queries.
+The API is now fully connected to MySQL and **no longer uses dummy (hard-coded) data**.
 
 ---
 
@@ -14,7 +14,8 @@ This project demonstrates:
 - A simple PHP JSON API
 - Docker Compose–based local development
 - MySQL container integration
-- Clear separation of concerns (Database, Gateway, Controller)
+- Environment-based configuration using `.env`
+- Database-backed CRUD operations
 - API testing using `curl`
 
 ---
@@ -36,8 +37,7 @@ taxtim-be/
 ├── docker-compose.yml
 ├── Dockerfile
 ├── index.php
-├── submit.php
-├── db.php
+├── .env
 ├── src/
 │   ├── Database.php
 │   ├── TransactionGateway.php
@@ -47,6 +47,32 @@ taxtim-be/
 │   └── init.sql
 └── README.md
 ```
+
+---
+
+## 🔐 Environment Configuration (.env)
+
+The project uses a `.env` file to define configuration values shared between **Docker Compose** and the **PHP application**.
+
+Docker Compose automatically loads the `.env` file from the project root.
+
+### Example `.env`
+
+```env
+# PHP server config
+PHP_HOST=0.0.0.0
+PHP_PORT=8000
+
+# MySQL config
+MYSQL_ROOT_PASSWORD=rootpassword
+MYSQL_DATABASE=crypto_tax
+MYSQL_USER=crypto_user
+MYSQL_PASSWORD=crypto_password
+MYSQL_HOST=mysql
+MYSQL_PORT=3306
+```
+
+> Inside Docker, `MYSQL_HOST` must be `mysql` (the service name), **not** `localhost`.
 
 ---
 
@@ -69,12 +95,13 @@ From the project root directory:
 docker compose up --build
 ```
 
-This command will:
+This will:
 
-- Build a PHP 8.3 container with `pdo_mysql` enabled
-- Start a MySQL 8 container
-- Create the `crypto_tax` database
-- Expose the API on **[http://localhost:8000](http://localhost:8000)**
+- Build PHP 8.3 with `pdo_mysql`
+- Start MySQL 8
+- Create the `crypto_tax` database and tables using `init/init.sql`
+- Expose the API at **[http://localhost:8000](http://localhost:8000)**
+- **Note:** Wait until the server starts to test the routes
 
 ---
 
@@ -86,12 +113,11 @@ http://localhost:8000
 
 ---
 
-## 🧪 Testing the API Endpoints
+## 🧪 Testing the API with curl
 
 ### GET /transactions
 
-Returns a list of transactions.
-(Currently returns **dummy data**, not database records.)
+Fetch all transactions stored in the database.
 
 ```bash
 curl http://localhost:8000/transactions
@@ -108,34 +134,57 @@ curl http://localhost:8000/transactions
     "amount": 1,
     "price": 10000,
     "created_at": "2023-01-01 00:00:00"
-  },
-  {
-    "id": 2,
-    "type": "sell",
-    "coin": "ETH",
-    "amount": 2.5,
-    "price": 1800,
-    "created_at": "2023-01-02 12:30:00"
   }
 ]
 ```
 
 ---
 
-## 🧪 Dummy Data Notice
+### POST /transactions
 
-The `TransactionGateway` currently returns hard-coded data instead of querying MySQL. This allows the API to be tested without relying on SQL logic.
+Create a new transaction.
 
-The gateway is already structured so dummy data can be replaced with real database queries without changing the API endpoints or controllers.
+```bash
+curl -X POST http://localhost:8000/transactions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "buy",
+    "coin": "ETH",
+    "amount": 2.5,
+    "price": 1800
+  }'
+```
+
+#### Expected Response
+
+```json
+{
+  "message": "Transaction created",
+  "id": 3
+}
+```
+
+The transaction is immediately persisted in MySQL and will appear in subsequent `GET /transactions` requests.
+
+---
+
+## 🗄️ Database Initialization
+
+The database schema is created automatically using Docker:
+
+- `init/init.sql` is executed on first container startup
+- Tables are only created if they do not already exist
+
+This ensures safe restarts without data loss.
 
 ---
 
 ## 🔮 Next Development Steps
 
-- Replace dummy data with real SQL queries
-- Add POST `/transactions`
+- Add PUT / DELETE endpoints
 - Add input validation
 - Add authentication (JWT)
+- Add pagination & filtering
 - Add database migrations
 
 ---

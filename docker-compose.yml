@@ -5,38 +5,35 @@ services:
     volumes:
       - .:/app
     working_dir: /app
-    command: php -S 0.0.0.0:8000
+    command: php -S ${PHP_HOST}:${PHP_PORT}
     ports:
-      - "8000:8000"
+      - "${PHP_PORT}:${PHP_PORT}"
+    environment:
+      PHP_HOST: ${PHP_HOST}
+      PHP_PORT: ${PHP_PORT}
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     depends_on:
       mysql:
         condition: service_healthy
   mysql:
-    image: mysql:8.0
+    image: mysql:latest
     container_name: crypto_tax_mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: crypto_tax
-      MYSQL_USER: crypto_user
-      MYSQL_PASSWORD: crypto_password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT}:${MYSQL_PORT}"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init:/docker-entrypoint-initdb.d
     healthcheck:
-      test:
-        [
-          "CMD",
-          "mysqladmin",
-          "ping",
-          "-h",
-          "localhost",
-          "-u",
-          "root",
-          "-prootpassword",
-        ]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
