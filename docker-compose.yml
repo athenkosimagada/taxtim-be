@@ -1,4 +1,16 @@
 services:
+  php:
+    build: .
+    container_name: crypto_tax_php
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: php -S 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
   mysql:
     image: mysql:8.0
     container_name: crypto_tax_mysql
