@@ -2,11 +2,18 @@
 
 class TransactionController
 {
-    public function __construct(private TransactionGateway $gateway) {}
+    protected $gateway;
+    protected $validator;
+    public function __construct($gateway, TransactionRequestValidator $validator) 
+    {
+        $this->gateway = $gateway;
+        $this->validator = $validator;
+    }
 
     public function index(): void
     {
-        echo json_encode($this->gateway->getAll());
+        $transactions = $this->gateway->getAll();
+        $this->sendResponse(200, $transactions);
     }
 
     public function show(int $id): void
@@ -14,12 +21,11 @@ class TransactionController
         $transaction = $this->gateway->getById($id);
 
         if (!$transaction) {
-            http_response_code(404);
-            echo json_encode(['error' => 'Transaction not found']);
+            $this->sendResponse(404, ['error' => 'Transaction not found']);
             return;
         }
 
-        echo json_encode($transaction);
+        $this->sendResponse(200, $transaction);
     }
 
     public function store(): void
@@ -27,14 +33,23 @@ class TransactionController
         $data = json_decode(file_get_contents('php://input'), true);
 
         if (!$data) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Invalid JSON']);
+            $this->sendResponse(400, ['error' => 'Invalid JSON payload']);
             return;
         }
 
-        $id = $this->gateway->create($data);
+        try {
+            $this->validator->validate($data);
+            $id = $this->gateway->create($data);
+            $this->sendResponse(201, ['id' => $id]);
+        } catch (ValidationException $ex) {
+            $this->sendResponse(422, ['error' => $ex->getMessage()]);
+        }
+    }
 
-        http_response_code(201);
-        echo json_encode(['id' => $id]);
+    private function sendResponse(int $statusCode, array $payload): void
+    {
+        http_response_code($statusCode);
+        header('Content-Type: application/json');
+        echo json_encode($payload);
     }
 }

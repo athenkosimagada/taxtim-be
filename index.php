@@ -15,6 +15,11 @@ spl_autoload_register(function (string $class): void {
         $base . 'Controllers/',
         $base . 'Gateways/',
         $base . 'Core/',
+        $base . 'Helpers/',
+        $base . 'Middleware/',
+        $base . 'Services/',
+        $base . 'Exceptions/',
+        $base . 'Validators/',
     ];
 
     foreach ($paths as $path) {
@@ -49,7 +54,8 @@ $database = new Database(
 );
 
 $transactionGateway    = new TransactionGateway($database);
-$transactionController = new TransactionController($transactionGateway);
+$transactionRequestValidator = new TransactionRequestValidator();
+$transactionController = new TransactionController($transactionGateway, $transactionRequestValidator);
 
 /*
 |--------------------------------------------------------------------------
