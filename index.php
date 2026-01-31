@@ -66,7 +66,8 @@ $router = new Router();
 
 $router->add('GET',  '/transactions',        [$transactionController, 'index']);
 $router->add('POST', '/transactions',        [$transactionController, 'store']);
-$router->add('GET',  '/transactions/{id}',   [$transactionController, 'show']);
+$router->add('GET',  '/transactions/{id:\d+}',   [$transactionController, 'show']);
+$router->add('DELETE',  '/transactions/{id:\d+}',   [$transactionController, 'remove']);
 
 $router->add('GET', '/', function () {
     echo json_encode(['message' => 'Welcome to the Crypto Tax API']);

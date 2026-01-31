@@ -18,11 +18,19 @@ class Router
                 continue;
             }
 
-            $pattern = $this->convertPathToRegex($route['path']);
+            $paramNames = [];
+            $pattern = $this->convertPathToRegex($route['path'], $paramNames);
 
             if (preg_match($pattern, $path, $matches)) {
                 array_shift($matches);
-                call_user_func_array($route['handler'], $matches);
+
+                $params = array_combine($paramNames, $matches) ?: [];
+
+                call_user_func_array(
+                    $route['handler'],
+                    array_values($params)
+                );
+
                 return;
             }
         }
@@ -31,9 +39,18 @@ class Router
         echo json_encode(['error' => 'Route not found']);
     }
 
-    private function convertPathToRegex(string $path): string
+    private function convertPathToRegex(string $path, array &$paramNames): string
     {
-        $pattern = preg_replace('#\{[\w]+\}#', '([\w-]+)', $path);
+        $pattern = preg_replace_callback(
+            '#\{(\w+)(?::([^}]+))?\}#',
+            function ($matches) use (&$paramNames) {
+                $paramNames[] = $matches[1];
+                $regex = $matches[2] ?? '[^/]+';
+                return '(' . $regex . ')';
+            },
+            $path
+        );
+
         return '#^' . $pattern . '$#';
     }
 }

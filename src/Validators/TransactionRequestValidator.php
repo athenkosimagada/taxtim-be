@@ -43,8 +43,8 @@ class TransactionRequestValidator
 
     private function validateType(string $type): void
     {
-        if (!in_array($type, ['buy', 'sell'], true)) {
-            throw new ValidationException("Type must be either 'buy' or 'sell'");
+        if (!in_array($type, ['BUY', 'SELL', 'TRADE'], true)) {
+            throw new ValidationException("Type must be either 'BUY', 'SELL', or 'TRADE'");
         }
     }
 

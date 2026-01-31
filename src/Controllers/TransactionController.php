@@ -46,6 +46,23 @@ class TransactionController
         }
     }
 
+    public function remove(int $id): void
+    {
+        $transaction = $this->gateway->getById($id);
+
+        if (!$transaction) {
+            $this->sendResponse(404, ['error' => 'Transaction not found']);
+            return;
+        }
+
+        try {
+            $this->gateway->delete($id);
+            $this->sendResponse(200, ['message' => 'Transaction deleted successfully']);
+        } catch (Exception $ex) {
+            $this->sendResponse(500, ['error' => 'Failed to delete transaction']);
+        }
+    }
+
     private function sendResponse(int $statusCode, array $payload): void
     {
         http_response_code($statusCode);

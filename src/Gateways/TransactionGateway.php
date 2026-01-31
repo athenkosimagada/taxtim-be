@@ -45,4 +45,12 @@ class TransactionGateway
 
         return (int)$this->connection->lastInsertId();
     }
+
+    public function delete(int $id): void
+    {
+        $stmt = $this->connection->prepare(
+            "DELETE FROM transactions WHERE id = :id"
+        );
+        $stmt->execute(['id' => $id]);
+    }
 }
