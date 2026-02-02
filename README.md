@@ -1,6 +1,6 @@
 # Taxtim BE – Crypto Tax Backend API
 
-**NOTE:** I DON'T KNOW IF IT HAPPEN ONLY TO MY PC OR NOT BUT WHEN I MAKE CHANGES AND SAVE CODE, I DON'T HAVE TO RESTART THE CONTAINER AGAIN TO RUN THE PROJECT, IT ALSO UPDATE THE CONTAINER RUNNING WITH THE CHNAGES YOU MADE. SO NO NEED TO STROP THE CONTAINER.
+**Note:** Depending on your environment, code changes may be applied automatically by the running Docker container, so you might not need to restart the container after saving changes.
 
 A **PHP 8.3 backend API** for managing crypto transactions.
 The project is designed as a **Docker-first REST-style service** and exposes a `/transactions` endpoint for creating and retrieving crypto transactions stored in a **MySQL database**.
