@@ -30,10 +30,12 @@ class ErrorHandler
             ? 'An unexpected error occurred.'
             : self::sanitizeMessage($errstr);
 
-        echo json_encode([
+        echo json_encode(
+            [
             'error' => true,
-            'message' => $message,
-        ]);
+            'message' => $message,],
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
+        );
 
         return true;
     }
@@ -59,10 +61,12 @@ class ErrorHandler
             ? 'Internal server error.'
             : self::sanitizeMessage($exception->getMessage());
 
-        echo json_encode([
+        echo json_encode(
+            [
             'error' => true,
-            'message' => $message,
-        ]);
+            'message' => $message,],
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
+        );
     }
 
     private static function sanitizeMessage(string $message): string
@@ -70,7 +74,7 @@ class ErrorHandler
         $pattern = '#[a-zA-Z]:\\\\(?:[^\\\\/:*?"<>|\r\n]+\\\\)*[^\\\\/:*?"<>|\r\n]+#'; // Windows paths
         $message = preg_replace($pattern, '[path]', $message);
 
-         $patternUnix = '#\/(?:[\w.-]+\/)*[\w.-]+#';
+        $patternUnix = '#\/(?:[\w.-]+\/)*[\w.-]+#';
         $message = preg_replace($patternUnix, '[path]', $message);
 
         return $message;
