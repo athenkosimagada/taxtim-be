@@ -66,27 +66,6 @@ $database = new Database(
     getenv('MYSQLPASSWORD') ?: getenv('MYSQL_PASSWORD')
 );
 
-function initializeDatabase(PDO $pdo, string $schemaFile, string $seedFile): void {
-    $tables = $pdo->query("SHOW TABLES")->fetchAll();
-    if (count($tables) === 0) {
-        $schemaSql = file_get_contents($schemaFile);
-        $pdo->exec($schemaSql);
-
-        $seedSql = file_get_contents($seedFile);
-        $pdo->exec($seedSql);
-
-        error_log("Database initialized (schema + seed).");
-    }
-}
-
-$pdo = $database->getConnection();
-
-initializeDatabase(
-    $database->getConnection(),
-    __DIR__ . '/database/schema.sql',
-    __DIR__ . '/database/seed.sql'
-);
-
 $transactionGateway    = new TransactionGateway($database);
 $transactionRequestValidator = new TransactionRequestValidator();
 $transactionController = new TransactionController($transactionGateway, $transactionRequestValidator);
