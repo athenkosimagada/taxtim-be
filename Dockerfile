@@ -1,16 +1,16 @@
-FROM php:8.3-cli
+FROM php:8.3-cli-alpine
 
-# Install PDO MySQL
+# Install extensions
 RUN docker-php-ext-install pdo pdo_mysql
 
-# Copy project files
-COPY . /usr/src/app
+# Create app directory
+WORKDIR /app
 
-# Set working directory
-WORKDIR /usr/src/app
+# Copy only what we need
+COPY . .
 
-# Expose API port
+# Expose port Railway expects
 EXPOSE 8000
 
-# IMPORTANT: route ALL requests through index.php
+# Start PHP built-in server
 CMD ["php", "-S", "0.0.0.0:8000", "index.php"]

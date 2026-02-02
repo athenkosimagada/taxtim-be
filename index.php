@@ -60,10 +60,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 |--------------------------------------------------------------------------
 */
 $database = new Database(
-    getenv('MYSQL_HOST') ?: 'mysql',
-    getenv('MYSQL_DATABASE') ?: 'crypto_tax',
-    getenv('MYSQL_USER') ?: 'crypto_user',
-    getenv('MYSQL_PASSWORD') ?: 'crypto_password'
+    getenv('MYSQLHOST') ?: getenv('MYSQL_HOST'),
+    getenv('MYSQLDATABASE') ?: getenv('MYSQL_DATABASE'),
+    getenv('MYSQLUSER') ?: getenv('MYSQL_USER'),
+    getenv('MYSQLPASSWORD') ?: getenv('MYSQL_PASSWORD')
 );
 
 $transactionGateway    = new TransactionGateway($database);

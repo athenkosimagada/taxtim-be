@@ -1,16 +1,10 @@
 services:
   php:
     build: .
-    container_name: crypto_tax_php
-    volumes:
-      - .:/app
-    working_dir: /app
-    command: php -S ${PHP_HOST}:${PHP_PORT}
+    container_name: crypto_tax_api
     ports:
-      - "${PHP_PORT}:${PHP_PORT}"
+      - "8000:8000"
     environment:
-      PHP_HOST: ${PHP_HOST}
-      PHP_PORT: ${PHP_PORT}
       MYSQL_HOST: ${MYSQL_HOST}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
@@ -19,7 +13,7 @@ services:
       mysql:
         condition: service_healthy
   mysql:
-    image: mysql:latest
+    image: mysql
     container_name: crypto_tax_mysql
     restart: unless-stopped
     environment:
@@ -28,7 +22,7 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
-      - "${MYSQL_PORT}:${MYSQL_PORT}"
+      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init:/docker-entrypoint-initdb.d
