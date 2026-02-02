@@ -1,8 +1,12 @@
 <?php
 
+namespace App\Validators;
+
+use App\Exceptions\ValidationException;
+
 class TransactionRequestValidator
 {
-    private array $labels = [
+    private $labels = [
         'type' => 'Type',
         'coin' => 'Coin',
         'amount' => 'Amount',
@@ -43,8 +47,12 @@ class TransactionRequestValidator
 
     private function validateType(string $type): void
     {
-        if (!in_array($type, ['BUY', 'SELL', 'TRADE'], true)) {
-            throw new ValidationException("Type must be either 'BUY', 'SELL', or 'TRADE' (uppercase)");
+        $allowedTypes = ['BUY', 'SELL', 'TRADE'];
+
+        if (!in_array($type, $allowedTypes, true)) {
+            throw new ValidationException(
+                "Type must be one of: " . implode(', ', $allowedTypes) . " (uppercase)"
+            );
         }
     }
 

@@ -1,5 +1,15 @@
 <?php
 
+namespace App;
+
+use App\Controllers\TransactionController;
+use App\Gateways\TransactionGateway;
+use App\Validators\TransactionRequestValidator;
+use App\Core\Database;
+use App\Core\ErrorHandler;
+use App\Core\Router;
+use ErrorException;
+
 declare(strict_types=1);
 
 /*
@@ -39,16 +49,37 @@ spl_autoload_register(function (string $class): void {
 set_error_handler(['ErrorHandler', 'handleError']);
 set_exception_handler(['ErrorHandler', 'handleException']);
 
+/*
+|--------------------------------------------------------------------------
+| Security Headers
+|--------------------------------------------------------------------------
+*/
 header('Content-Type: application/json; charset=UTF-8');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: no-referrer');
+header('Permissions-Policy: interest-cohort=()');
+if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+    header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
+}
 
-// ==================
-// CORS
-// ==================
+/*
+|--------------------------------------------------------------------------
+| CORS Configuration
+|--------------------------------------------------------------------------
+*/
 $corsAllowedOrigin = getenv('CORS_ALLOWED_ORIGIN') ?: 'http://localhost:5173';
-header("Access-Control-Allow-Origin: " . $corsAllowedOrigin);
-header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
-header("Access-Control-Allow-Credentials: true");
+
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+
+if ($origin && $origin === $corsAllowedOrigin) {
+    header("Access-Control-Allow-Origin: {$corsAllowedOrigin}");
+    header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+    header('Access-Control-Allow-Credentials: true');
+} else {
+    header('Access-Control-Allow-Origin: null');
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);

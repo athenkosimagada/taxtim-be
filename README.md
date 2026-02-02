@@ -94,7 +94,7 @@ No local PHP or MySQL installation is required.
 From the project root directory:
 
 ```bash
-docker compose up --build
+docker compose up --build -d
 ```
 
 This will:
@@ -131,7 +131,7 @@ curl http://localhost:8000/transactions
 [
   {
     "id": 1,
-    "type": "buy",
+    "type": "BUY",
     "coin": "BTC",
     "amount": 1,
     "price": 10000,
@@ -150,7 +150,7 @@ Create a new transaction.
 curl -X POST http://localhost:8000/transactions \
   -H "Content-Type: application/json" \
   -d '{
-    "type": "buy",
+    "type": "BUY",
     "coin": "ETH",
     "amount": 2.5,
     "price": 1800
@@ -161,7 +161,7 @@ curl -X POST http://localhost:8000/transactions \
 
 ```json
 {
-  "message": "Transaction created",
+  "message": "Transaction created successfully",
   "id": 3
 }
 ```

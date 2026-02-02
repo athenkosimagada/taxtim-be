@@ -1,5 +1,10 @@
 <?php
 
+namespace App\Gateways;
+
+use App\Core\Database;
+use PDO;
+
 class TransactionGateway
 {
     private PDO $connection;
