@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App;
 
 use App\Controllers\TransactionController;
@@ -10,8 +12,6 @@ use App\Core\ErrorHandler;
 use App\Core\Router;
 use ErrorException;
 
-declare(strict_types=1);
-
 /*
 |--------------------------------------------------------------------------
 | Autoload
@@ -20,20 +20,15 @@ declare(strict_types=1);
 spl_autoload_register(function (string $class): void {
     $base = __DIR__ . '/src/';
 
-    $paths = [
-        $base,
-        $base . 'Controllers/',
-        $base . 'Gateways/',
-        $base . 'Core/',
-        $base . 'Helpers/',
-        $base . 'Middleware/',
-        $base . 'Services/',
-        $base . 'Exceptions/',
-        $base . 'Validators/',
-    ];
+    $prefix = 'App\\';
 
-    foreach ($paths as $path) {
-        $file = $path . $class . '.php';
+    if (str_starts_with($class, $prefix)) {
+        $relativeClass = substr($class, strlen($prefix));
+
+        $relativePath = str_replace('\\', '/', $relativeClass);
+
+        $file = $base . $relativePath . '.php';
+
         if (is_file($file)) {
             require $file;
             return;
@@ -46,14 +41,16 @@ spl_autoload_register(function (string $class): void {
 | Error Handling
 |--------------------------------------------------------------------------
 */
-set_error_handler(['ErrorHandler', 'handleError']);
-set_exception_handler(['ErrorHandler', 'handleException']);
+
+set_error_handler([ErrorHandler::class, 'handleError']);
+set_exception_handler([ErrorHandler::class, 'handleException']);
 
 /*
 |--------------------------------------------------------------------------
 | Security Headers
 |--------------------------------------------------------------------------
 */
+
 header('Content-Type: application/json; charset=UTF-8');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
