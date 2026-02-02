@@ -50,8 +50,10 @@ class TransactionRequestValidator
 
     private function validateCoin(string $coin): void
     {
-        if (strlen($coin) > 10) {
-            throw new ValidationException("Coin must be at most 10 characters");
+        $coin = trim($coin);
+
+        if ($coin === '' || strlen($coin) > 10) {
+            throw new ValidationException("Coin must be between 1 and 10 characters");
         }
     }
 
