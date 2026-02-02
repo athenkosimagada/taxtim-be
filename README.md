@@ -174,7 +174,7 @@ The transaction is immediately persisted in MySQL and will appear in subsequent 
 
 The database schema is created automatically using Docker:
 
-- `init/init.sql` is executed on first container startup
+- `schema.sql` and `seed.sql` are executed on first container startup
 - Tables are only created if they do not already exist
 
 This ensures safe restarts without data loss.
