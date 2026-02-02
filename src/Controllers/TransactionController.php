@@ -2,9 +2,9 @@
 
 class TransactionController
 {
-    protected $gateway;
+    protected TransactionGateway $gateway;
     protected $validator;
-    public function __construct($gateway, TransactionRequestValidator $validator) 
+    public function __construct(TransactionGateway $gateway, TransactionRequestValidator $validator) 
     {
         $this->gateway = $gateway;
         $this->validator = $validator;
