@@ -28,6 +28,14 @@ class Router
 
                 $params = array_combine($paramNames, $matches) ?: [];
 
+                if (!is_callable($route['handler'])) {
+                    http_response_code(500);
+                    echo json_encode([
+                        'error' => 'Handler for route is not callable'
+                    ]);
+                    return;
+                }
+
                 call_user_func_array(
                     $route['handler'],
                     array_values($params)

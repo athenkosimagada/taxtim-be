@@ -26,11 +26,13 @@ class ErrorHandler
             header('Content-Type: application/json; charset=UTF-8');
         }
 
+        $message = self::isProduction()
+            ? 'An unexpected error occurred.'
+            : self::sanitizeMessage($errstr);
+
         echo json_encode([
             'error' => true,
-            'message' => self::isProduction()
-                ? 'An unexpected error occurred.'
-                : $errstr,
+            'message' => $message,
         ]);
 
         return true;
@@ -48,13 +50,29 @@ class ErrorHandler
             )
         );
 
-        http_response_code(500);
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: application/json; charset=UTF-8');
+        }
+
+        $message = self::isProduction()
+            ? 'Internal server error.'
+            : self::sanitizeMessage($exception->getMessage());
 
         echo json_encode([
             'error' => true,
-            'message' => self::isProduction()
-                ? 'Internal server error.'
-                : $exception->getMessage(),
+            'message' => $message,
         ]);
+    }
+
+    private static function sanitizeMessage(string $message): string
+    {
+        $pattern = '#[a-zA-Z]:\\\\(?:[^\\\\/:*?"<>|\r\n]+\\\\)*[^\\\\/:*?"<>|\r\n]+#'; // Windows paths
+        $message = preg_replace($pattern, '[path]', $message);
+
+         $patternUnix = '#\/(?:[\w.-]+\/)*[\w.-]+#';
+        $message = preg_replace($patternUnix, '[path]', $message);
+
+        return $message;
     }
 }
