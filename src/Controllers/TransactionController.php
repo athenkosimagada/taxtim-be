@@ -32,8 +32,11 @@ class TransactionController
     {
         $data = json_decode(file_get_contents('php://input'), true);
 
-        if (!$data) {
-            $this->sendResponse(400, ['error' => 'Invalid JSON payload']);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->sendResponse(400, [
+                'error' => 'Invalid JSON payload',
+                'details' => json_last_error_msg(),
+            ]);
             return;
         }
 
