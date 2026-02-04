@@ -50,4 +50,12 @@ $router->get('/api/transactions/calculate', function () {
     echo json_encode($result, JSON_PRETTY_PRINT);
 });
 
+$router->delete('/api/transactions', function () {
+    $controller = new TransactionController();
+    $controller->deleteAllTransactions();
+
+    http_response_code(200);
+    echo json_encode(['success' => true, 'message' => 'All transactions deleted successfully']);
+});
+
 $router->dispatch($_SERVER['REQUEST_URI'], $_SERVER['REQUEST_METHOD']);

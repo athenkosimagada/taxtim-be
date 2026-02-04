@@ -23,4 +23,9 @@ class TransactionController
         $transactions = TransactionService::getAllTransactions();
         return TransactionService::calculateFIFO($transactions);
     }
+
+    public function deleteAllTransactions(): void
+    {
+        TransactionService::deleteAllTransactions();
+    }
 }
