@@ -1,19 +1,23 @@
--- ============================
--- Schema: transactions table
--- ============================
-
 CREATE TABLE IF NOT EXISTS transactions (
     id INT AUTO_INCREMENT PRIMARY KEY,
 
-    type ENUM('BUY', 'SELL', 'TRADE') NOT NULL,
-    coin VARCHAR(10) NOT NULL,
+    wallet VARCHAR(50) DEFAULT 'default',
 
-    amount DECIMAL(18,8) NOT NULL,
-    price  DECIMAL(18,2) NOT NULL,
+    type ENUM('BUY','SELL','TRADE') NOT NULL,
 
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    asset_from VARCHAR(10),
+    asset_to   VARCHAR(10),
 
-    INDEX idx_coin (coin),
+    quantity DECIMAL(18,8) NOT NULL,
+    unit_price_zar DECIMAL(18,2) NOT NULL,
+    fee_zar DECIMAL(18,2) DEFAULT 0,
+
+    asset_from_market_price_zar DECIMAL(18,2) NULL,
+
+    executed_at DATE NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_wallet (wallet),
     INDEX idx_type (type),
-    INDEX idx_created_at (created_at)
+    INDEX idx_executed_at (executed_at)
 );
