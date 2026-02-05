@@ -47,6 +47,10 @@ class TransactionService
     {
         $balances = []; 
         $capitalGains = [];
+        $calculationRows = [];
+
+        $baseCostSnapshots = [];
+        $currentTaxYear = null;
 
         usort($transactions, fn ($a, $b) =>
             $a->executedAt <=> $b->executedAt
@@ -54,6 +58,13 @@ class TransactionService
         
         foreach ($transactions as $tx) {
             $taxYear = FifoHelper::getTaxYear($tx->executedAt);
+
+            if ($currentTaxYear !== null && $taxYear !== $currentTaxYear) {
+                $baseCostSnapshots[$currentTaxYear] =
+                    self::calculateBaseCosts($balances);
+            }
+
+            $currentTaxYear = $taxYear;
 
             switch ($tx->type) {
                 case 'BUY':
@@ -64,15 +75,29 @@ class TransactionService
                     ];
                     break;
                 case 'SELL':
-                    self::fifoDispose(
+                    $result = self::fifoSell(
                         $tx->assetFrom,
                         $tx->quantity,
-                        $tx->unitPriceZar,
-                        $tx->executedAt,
-                        $balances,
-                        $capitalGains,
-                        $taxYear
+                        $balances
                     );
+
+                    $proceeds = $tx->quantity * $tx->unitPriceZar;
+                    $gain = $proceeds - $result['cost'];
+
+                    $capitalGains[$taxYear][$tx->assetFrom] =
+                        ($capitalGains[$taxYear][$tx->assetFrom] ?? 0) + $gain;
+
+                    $calculationRows[] = [
+                        'type' => 'SELL',
+                        'asset' => $tx->assetFrom,
+                        'date' => $tx->executedAt->format('Y-m-d'),
+                        'quantity' => $tx->quantity,
+                        'proceeds' => round($proceeds, 2),
+                        'cost' => $result['cost'],
+                        'gain' => round($gain, 2),
+                        'lots' => $result['lots'],
+                        'taxYear' => $taxYear,
+                    ];
                     break;
 
                 case 'TRADE':
@@ -80,71 +105,97 @@ class TransactionService
                         throw new \Exception('assetFromMarketPriceZar is required for TRADE');
                     }
 
-                    $zarRequired = $tx->quantity * $tx->unitPriceZar;
-                    $btcSoldQty = $zarRequired / $tx->assetFromMarketPriceZar;
+                    $zarProceeds = $tx->quantity * $tx->unitPriceZar;
+                    $soldQty = $zarProceeds / $tx->assetFromMarketPriceZar;
 
-                    $costSold = self::fifoSell(
+                    $result = self::fifoSell(
                         $tx->assetFrom,
-                        $btcSoldQty,
+                        $soldQty,
                         $balances
                     );
 
-                    $capitalGains[$taxYear] = ($capitalGains[$taxYear] ?? 0)
-                        + ($zarRequired - $costSold);
+                    $gain = $zarProceeds - $result['cost'];
+
+                    $capitalGains[$taxYear][$tx->assetFrom] =
+                        ($capitalGains[$taxYear][$tx->assetFrom] ?? 0) + $gain;
 
                     $balances[$tx->assetTo][] = [
                         'quantity' => $tx->quantity,
                         'unitPriceZar' => $tx->unitPriceZar,
                         'date' => $tx->executedAt->format('Y-m-d'),
                     ];
+
+                    $calculationRows[] = [
+                        'type' => 'TRADE',
+                        'from' => $tx->assetFrom,
+                        'to' => $tx->assetTo,
+                        'date' => $tx->executedAt->format('Y-m-d'),
+                        'soldQuantity' => round($soldQty, 8),
+                        'proceeds' => round($zarProceeds, 2),
+                        'cost' => $result['cost'],
+                        'gain' => round($gain, 2),
+                        'lots' => $result['lots'],
+                        'taxYear' => $taxYear,
+                    ];
                     break;
             }
         }
 
+        if ($currentTaxYear !== null) {
+            $baseCostSnapshots[$currentTaxYear] =
+                self::calculateBaseCosts($balances);
+        }
+
+        foreach ($capitalGains as $year => $assets) {
+            $capitalGains[$year]['TOTAL'] = array_sum($assets);
+        }
+
         return [
+            'transactions' => $transactions,
+            'calculations' => $calculationRows,
             'balances' => $balances,
-            'capitalGains' => $capitalGains,
             'baseCosts' => self::calculateBaseCosts($balances),
+            'baseCostSnapshots' => $baseCostSnapshots,
+            'capitalGains' => $capitalGains,
         ];
     }
 
-    private static function fifoSell(string $asset, float $qty, array &$balances): float
+    private static function fifoSell(string $asset, float $qty, array &$balances): array
     {
         if (!isset($balances[$asset])) {
             throw new \Exception("No balance for $asset");
         }
 
         $cost = 0;
+        $lotsUsed = [];
 
         while ($qty > 0) {
             $lot = &$balances[$asset][0];
 
-            if ($lot['quantity'] <= $qty) {
-                $cost += $lot['quantity'] * $lot['unitPriceZar'];
-                $qty -= $lot['quantity'];
+            $usedQty = min($qty, $lot['quantity']);
+            $usedCost = $usedQty * $lot['unitPriceZar'];
+
+            $lotsUsed[] = [
+                'asset' => $asset,
+                'quantity' => round($usedQty, 8),
+                'unitPriceZar' => $lot['unitPriceZar'],
+                'date' => $lot['date'],
+                'cost' => round($usedCost, 2),
+            ];
+
+            $cost += $usedCost;
+            $lot['quantity'] -= $usedQty;
+            $qty -= $usedQty;
+
+            if ($lot['quantity'] <= 0) {
                 array_shift($balances[$asset]);
-            } else {
-                $cost += $qty * $lot['unitPriceZar'];
-                $lot['quantity'] -= $qty;
-                $qty = 0;
             }
         }
 
-        return $cost;
-    }
-
-    private static function fifoDispose(
-        string $asset,
-        float $qty,
-        float $price,
-        \DateTime $date,
-        array &$balances,
-        array &$capitalGains,
-        string $year
-    ): void {
-        $cost = self::fifoSell($asset, $qty, $balances);
-        $proceeds = $qty * $price;
-        $capitalGains[$year] = ($capitalGains[$year] ?? 0) + ($proceeds - $cost);
+        return [
+            'cost' => round($cost, 2),
+            'lots' => $lotsUsed
+        ];
     }
 
     private static function calculateBaseCosts(array $balances): array
