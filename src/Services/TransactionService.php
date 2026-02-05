@@ -43,6 +43,27 @@ class TransactionService
         TransactionRepository::deleteAll();
     }
 
+    public static function getTaxYearReport(int $year): array
+    {
+        $transactions = TransactionRepository::getAll();
+        $fifo = self::calculateFIFO($transactions);
+
+        $disposals = array_values(array_filter(
+            $fifo['calculations'],
+            fn ($row) => $row['taxYear'] === $year
+        ));
+
+        return [
+            'taxYear' => $year,
+            'capitalGains' => $fifo['capitalGains'][$year] ?? [
+                'TOTAL' => 0
+            ],
+            'disposals' => $disposals,
+            'openingBaseCosts' => $fifo['baseCostSnapshots'][$year - 1] ?? [],
+            'closingBaseCosts' => $fifo['baseCostSnapshots'][$year] ?? [],
+        ];
+    }
+
     public static function calculateFIFO(array $transactions): array
     {
         $balances = []; 
@@ -147,7 +168,16 @@ class TransactionService
         }
 
         foreach ($capitalGains as $year => $assets) {
-            $capitalGains[$year]['TOTAL'] = array_sum($assets);
+            $total = '0';
+
+            foreach ($assets as $asset => $gain) {
+                if ($asset === 'TOTAL') continue;
+
+                $capitalGains[$year][$asset] = round($gain, 2);
+                $total = \bcadd($total, (string)$gain, 8);
+            }
+
+            $capitalGains[$year]['TOTAL'] = round((float)$total, 2);
         }
 
         return [
@@ -166,24 +196,25 @@ class TransactionService
             throw new \Exception("No balance for $asset");
         }
 
-        $cost = 0;
+        $cost = '0';
         $lotsUsed = [];
 
         while ($qty > 0) {
             $lot = &$balances[$asset][0];
 
             $usedQty = min($qty, $lot['quantity']);
-            $usedCost = $usedQty * $lot['unitPriceZar'];
+            $usedCost = \bcmul((string)$usedQty, (string)$lot['unitPriceZar'], 8);
 
             $lotsUsed[] = [
                 'asset' => $asset,
                 'quantity' => round($usedQty, 8),
                 'unitPriceZar' => $lot['unitPriceZar'],
                 'date' => $lot['date'],
-                'cost' => round($usedCost, 2),
+                'cost' => round((float)$usedCost, 2),
             ];
 
-            $cost += $usedCost;
+            $cost = \bcadd($cost, $usedCost, 8);
+            
             $lot['quantity'] -= $usedQty;
             $qty -= $usedQty;
 
@@ -193,7 +224,8 @@ class TransactionService
         }
 
         return [
-            'cost' => round($cost, 2),
+            'cost' => round((float)$cost, 2),
+            'rawCost' => $cost,
             'lots' => $lotsUsed
         ];
     }

@@ -58,4 +58,12 @@ $router->delete('/api/transactions', function () {
     echo json_encode(['success' => true, 'message' => 'All transactions deleted successfully']);
 });
 
+$router->get('/api/reports/tax-year/{year}', function ($params) {
+   $controller = new TransactionController();
+   $result = $controller->getTaxYearReport($params);
+
+   http_response_code(200);
+   echo json_encode($result, JSON_PRETTY_PRINT);
+});
+
 $router->dispatch($_SERVER['REQUEST_URI'], $_SERVER['REQUEST_METHOD']);

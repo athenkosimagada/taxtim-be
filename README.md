@@ -1,196 +1,280 @@
-# Taxtim BE – Crypto Tax Backend API
-
-**Note:** Depending on your environment, code changes may be applied automatically by the running Docker container, so you might not need to restart the container after saving changes.
-
-A **PHP 8.3 backend API** for managing crypto transactions.
-The project is designed as a **Docker-first REST-style service** and exposes a `/transactions` endpoint for creating and retrieving crypto transactions stored in a **MySQL database**.
-
-The API is now fully connected to MySQL and **no longer uses dummy (hard-coded) data**.
+# Crypto Tax API Documentation
 
 ---
 
-## 🚀 Project Overview
+## Overview
 
-This project demonstrates:
+This API provides functionality to:
 
-- A simple PHP JSON API
-- Docker Compose–based local development
-- MySQL container integration
-- Environment-based configuration using `.env`
-- Database-backed CRUD operations
-- API testing using `curl`
+- Import and manage cryptocurrency transaction data
+- Calculate FIFO-based capital gains and tax year reports
+- Retrieve transaction history and summaries
 
----
-
-## 🧱 Tech Stack
-
-- **PHP 8.3** (CLI server)
-- **MySQL 8** (Docker container)
-- **Docker & Docker Compose**
-- **PDO (pdo_mysql)**
-- **curl** for endpoint testing
+The API is designed to help calculate capital gains for crypto disposals and trades in South African Rand (ZAR).
 
 ---
 
-## 📂 Project Structure
+## Base URL
 
-```text
-taxtim-be/
-├── docker-compose.yml
-├── Dockerfile
-├── index.php
-├── .env
-├── src/
-│   ├──
-│   ├──
-│   ├──
-│   └──
-├── init/
-│   └── init.sql
-└── README.md
+```
+http://localhost:8000/api
 ```
 
 ---
 
-## 🔐 Environment Configuration (.env)
-
-The project uses a `.env` file to define configuration values shared between **Docker Compose** and the **PHP application**.
-
-Docker Compose automatically loads the `.env` file from the project root.
-
-### Example `.env`
-
-```env
-# PHP server config
-PHP_HOST=0.0.0.0
-PHP_PORT=8000
-
-# MySQL config
-MYSQL_ROOT_PASSWORD=rootpassword
-MYSQL_DATABASE=crypto_tax
-MYSQL_USER=crypto_user
-MYSQL_PASSWORD=crypto_password
-MYSQL_HOST=mysql
-MYSQL_PORT=3306
-```
-
-> Inside Docker, `MYSQL_HOST` must be `mysql` (the service name), **not** `localhost`.
+# Endpoints
 
 ---
 
-## 🐳 Running the Project with Docker
+## 1. **Import Transactions**
 
-### Requirements
-
-- Docker Desktop
-- Docker Compose v2+
-
-No local PHP or MySQL installation is required.
-
----
-
-### Build and Start Containers
-
-From the project root directory:
-
-```bash
-docker compose up --build -d
+```
+POST /transactions/import
 ```
 
-This will:
+### Description
 
-- Build PHP 8.3 with `pdo_mysql`
-- Start MySQL 8
-- Create the `crypto_tax` database and tables using `init/init.sql`
-- Expose the API at **[http://localhost:8000](http://localhost:8000)**
-- **Note:** Wait until the server starts to test the routes
+Import an array of transactions into the system.
 
----
-
-## 🌐 API Base URL
-
-```text
-http://localhost:8000
-```
-
----
-
-## 🧪 Testing the API with curl
-
-### GET /transactions
-
-Fetch all transactions stored in the database.
-
-```bash
-curl http://localhost:8000/transactions
-```
-
-#### Example Response
+### Request Body (JSON)
 
 ```json
 [
   {
-    "id": 1,
+    "wallet": "default",
     "type": "BUY",
-    "coin": "BTC",
-    "amount": 1,
-    "price": 10000,
-    "created_at": "2023-01-01 00:00:00"
-  }
+    "assetFrom": null,
+    "assetTo": "BTC",
+    "quantity": 0.1,
+    "unitPriceZar": 80000,
+    "feeZar": 0,
+    "assetFromMarketPriceZar": null,
+    "executedAt": "2024-11-01 00:00:00"
+  },
+  ...
+]
+```
+
+### Response
+
+- **201 Created**
+
+```json
+{
+  "success": true,
+  "message": "Transactions created successfully"
+}
+```
+
+- **400 Bad Request** (invalid JSON)
+
+```json
+{
+  "success": false,
+  "message": "Invalid JSON input"
+}
+```
+
+---
+
+## 2. **Get All Transactions**
+
+```
+GET /transactions
+```
+
+### Description
+
+Retrieve all transactions ordered by execution date ascending.
+
+### Response
+
+```json
+[
+  {
+    "wallet": "default",
+    "type": "BUY",
+    "assetFrom": null,
+    "assetTo": "BTC",
+    "quantity": 0.1,
+    "unitPriceZar": 80000,
+    "feeZar": 0,
+    "assetFromMarketPriceZar": null,
+    "executedAt": {
+      "date": "2024-11-01 00:00:00.000000",
+      "timezone_type": 3,
+      "timezone": "UTC"
+    }
+  },
+  ...
 ]
 ```
 
 ---
 
-### POST /transactions
+## 3. **Calculate FIFO Capital Gains**
 
-Create a new transaction.
-
-```bash
-curl -X POST http://localhost:8000/transactions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "BUY",
-    "coin": "ETH",
-    "amount": 2.5,
-    "price": 1800
-  }'
+```
+GET /transactions/calculate
 ```
 
-#### Expected Response
+### Description
+
+Calculate FIFO capital gains, balances, base costs, and detailed transaction calculations.
+
+### Response (Example)
 
 ```json
 {
-  "message": "Transaction created successfully",
-  "id": 3
+  "transactions": [...],
+  "calculations": [...],
+  "balances": {...},
+  "baseCosts": {...},
+  "baseCostSnapshots": {...},
+  "capitalGains": {...}
 }
 ```
 
-The transaction is immediately persisted in MySQL and will appear in subsequent `GET /transactions` requests.
+---
+
+## 4. **Delete All Transactions**
+
+```
+DELETE /transactions
+```
+
+### Description
+
+Deletes all stored transactions.
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "All transactions deleted successfully"
+}
+```
 
 ---
 
-## 🗄️ Database Initialization
+## 5. **Get Tax Year Report**
 
-The database schema is created automatically using Docker:
+```
+GET /reports/tax-year/{year}
+```
 
-- `schema.sql` and `seed.sql` are executed on first container startup
-- Tables are only created if they do not already exist
+### Description
 
-This ensures safe restarts without data loss.
+Get detailed tax report for a specific tax year.
+
+### Path Parameters
+
+- `year` (integer): The tax year (e.g., 2026).
+
+### Response
+
+```json
+{
+  "taxYear": 2026,
+  "capitalGains": {
+    "BTC": 9000,
+    "TOTAL": 9000
+  },
+  "disposals": [
+    {
+      "type": "TRADE",
+      "from": "BTC",
+      "to": "ETH",
+      "date": "2025-05-05",
+      "soldQuantity": 0.13333333,
+      "proceeds": 20000,
+      "cost": 11000,
+      "gain": 9000,
+      "lots": [
+        {
+          "asset": "BTC",
+          "quantity": 0.1,
+          "unitPriceZar": 80000,
+          "date": "2024-11-01",
+          "cost": 8000
+        },
+        {
+          "asset": "BTC",
+          "quantity": 0.03333333,
+          "unitPriceZar": 90000,
+          "date": "2024-11-02",
+          "cost": 3000
+        }
+      ],
+      "taxYear": 2026
+    }
+  ],
+  "openingBaseCosts": {
+    "BTC": {
+      "quantity": 0.3,
+      "cost": 26000
+    }
+  },
+  "closingBaseCosts": {
+    "BTC": {
+      "quantity": 0.46666667,
+      "cost": 45000
+    },
+    "ETH": {
+      "quantity": 10,
+      "cost": 20000
+    }
+  }
+}
+```
+
+### Errors
+
+- **400 Bad Request** — Invalid year
+
+```json
+{
+  "error": "Invalid tax year"
+}
+```
+
+- **404 Not Found** — No report found (handled by route if implemented)
 
 ---
 
-## 🔮 Next Development Steps
+# Internal Logic Notes
 
-- Add PUT / DELETE endpoints
-- Add input validation
-- Add authentication (JWT)
-- Add pagination & filtering
-- Add database migrations
+- **FIFO Calculation**: Uses First-In-First-Out logic to calculate cost basis for sales/trades.
+- **Tax Year**: Determined by date of transaction, typically calendar year.
+- **Capital Gains**: Calculated per asset and summed as total for tax reporting.
+- **Base Costs**: Snapshot of holdings at start and end of tax years for accurate tax cost basis.
 
 ---
 
-## 📜 License
+# Deployment Notes
 
-MIT License
+- The app connects to a MySQL database (configured via environment variables).
+- Docker Compose setup uses two services:
+  - `php`: The API service exposed on port 8000
+  - `mysql`: MySQL database on port 3307 (mapped to 3306 inside container)
+
+- Retry logic on DB connection to ensure availability during container startup.
+
+---
+
+# Usage Examples
+
+### Import Transactions (using curl)
+
+```bash
+curl -X POST http://localhost:8000/api/transactions/import \
+     -H "Content-Type: application/json" \
+     -d '[{"wallet":"default","type":"BUY","assetFrom":null,"assetTo":"BTC","quantity":0.1,"unitPriceZar":80000,"feeZar":0,"assetFromMarketPriceZar":null,"executedAt":"2024-11-01 00:00:00"}]'
+```
+
+### Get Tax Year Report
+
+```bash
+curl -X GET http://localhost:8000/api/reports/tax-year/2026
+```
