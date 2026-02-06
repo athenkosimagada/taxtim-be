@@ -14,7 +14,7 @@ class TransactionService
         foreach ($transactions as $data) {
             $tx = new Transaction();
             
-            $tx->wallet = $data['wallet'];
+            $tx->wallet = $data['wallet'] ?? 'default';
             $tx->type = $data['type'];
 
             $tx->assetFrom = $data['assetFrom'] ?? null;
