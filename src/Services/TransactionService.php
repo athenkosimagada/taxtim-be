@@ -12,10 +12,13 @@ class TransactionService
     public static function  createTransactions(array $transactions): void
     {
         foreach ($transactions as $data) {
+            // Validate required fields
+            self::validateTransaction($data);
+            
             $tx = new Transaction();
             
-            $tx->wallet = $data['wallet'] ?? 'default';
-            $tx->type = $data['type'];
+            $tx->wallet = $data['wallet'];
+            $tx->type = strtoupper($data['type']);
 
             $tx->assetFrom = $data['assetFrom'] ?? null;
             $tx->assetTo = $data['assetTo'] ?? null;
