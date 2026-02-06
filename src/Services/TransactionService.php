@@ -33,6 +33,50 @@ class TransactionService
         }
     }
 
+    private static function validateTransaction(array $data): void
+    {
+        $type = strtoupper($data['type'] ?? '');
+        
+        if (!in_array($type, ['BUY', 'SELL', 'TRADE'])) {
+            throw new \Exception("Invalid transaction type: {$type}. Must be BUY, SELL, or TRADE.");
+        }
+
+        if (!isset($data['quantity']) || (float)$data['quantity'] <= 0) {
+            throw new \Exception("Quantity must be a positive number.");
+        }
+
+        if (!isset($data['unitPriceZar']) || (float)$data['unitPriceZar'] < 0) {
+            throw new \Exception("Unit price must be zero or positive.");
+        }
+
+        // SELL-specific validation
+        if ($type === 'SELL') {
+            if (empty($data['assetFrom'])) {
+                throw new \Exception("SELL transactions require assetFrom to specify which asset is being sold.");
+            }
+        }
+
+        // BUY-specific validation
+        if ($type === 'BUY') {
+            if (empty($data['assetTo'])) {
+                throw new \Exception("BUY transactions require assetTo to specify which asset is being purchased.");
+            }
+        }
+
+        // TRADE-specific validation
+        if ($type === 'TRADE') {
+            if (empty($data['assetFrom'])) {
+                throw new \Exception("TRADE transactions require assetFrom.");
+            }
+            if (empty($data['assetTo'])) {
+                throw new \Exception("TRADE transactions require assetTo.");
+            }
+            if (!isset($data['assetFromMarketPriceZar']) || (float)$data['assetFromMarketPriceZar'] <= 0) {
+                throw new \Exception("TRADE transactions require a positive assetFromMarketPriceZar.");
+            }
+        }
+    }
+
     public static function getAllTransactions(): array
     {
         return TransactionRepository::getAll();
