@@ -239,8 +239,20 @@ class TransactionService
 
     private static function fifoSell(string $asset, float $qty, array &$balances): array
     {
-        if (!isset($balances[$asset])) {
-            throw new \Exception("No balance for $asset");
+        if (!isset($balances[$asset]) || empty($balances[$asset])) {
+            throw new \Exception("Cannot sell $asset: no balance available. You must buy before you can sell.");
+        }
+
+        // Calculate total available balance
+        $totalAvailable = array_reduce($balances[$asset], fn($sum, $lot) => $sum + $lot['quantity'], 0);
+        
+        // Allow for small floating point differences (0.00000001 tolerance)
+        if ($qty > $totalAvailable + 0.00000001) {
+            throw new \Exception(
+                "Insufficient balance for $asset. Attempting to sell " . 
+                number_format($qty, 8) . " but only " . 
+                number_format($totalAvailable, 8) . " available."
+            );
         }
 
         $cost = '0';
