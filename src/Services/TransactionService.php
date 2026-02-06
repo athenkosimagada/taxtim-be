@@ -258,7 +258,11 @@ class TransactionService
         $cost = '0';
         $lotsUsed = [];
 
-        while ($qty > 0) {
+        while ($qty > 0.00000001) { // Use tolerance for floating point comparison
+            if (empty($balances[$asset])) {
+                break; // All lots consumed
+            }
+            
             $lot = &$balances[$asset][0];
 
             $usedQty = min($qty, $lot['quantity']);
@@ -266,7 +270,7 @@ class TransactionService
 
             $lotsUsed[] = [
                 'asset' => $asset,
-                'quantity' => round($usedQty, 2),
+                'quantity' => round($usedQty, 8),
                 'unitPriceZar' => $lot['unitPriceZar'],
                 'date' => $lot['date'],
                 'cost' => round((float)$usedCost, 2),
@@ -277,7 +281,8 @@ class TransactionService
             $lot['quantity'] -= $usedQty;
             $qty -= $usedQty;
 
-            if ($lot['quantity'] <= 0) {
+            // Remove lot if fully consumed (with tolerance)
+            if ($lot['quantity'] <= 0.00000001) {
                 array_shift($balances[$asset]);
             }
         }
