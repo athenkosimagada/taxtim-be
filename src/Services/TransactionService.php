@@ -173,7 +173,7 @@ class TransactionService
                         throw new \Exception('assetFromMarketPriceZar is required for TRADE');
                     }
 
-                    $zarProceeds = round((float)$tx->quantity, 2) * $tx->unitPriceZar;
+                    $zarProceeds = $tx->quantity * $tx->unitPriceZar;
                     $soldQty = $zarProceeds / $tx->assetFromMarketPriceZar;
 
                     $result = self::fifoSell(
@@ -188,7 +188,7 @@ class TransactionService
                         ($capitalGains[$taxYear][$tx->assetFrom] ?? 0) + $gain;
 
                     $balances[$tx->assetTo][] = [
-                        'quantity' => round((float)$tx->quantity, 2),
+                        'quantity' => $tx->quantity,
                         'unitPriceZar' => $tx->unitPriceZar,
                         'date' => $tx->executedAt->format('Y-m-d'),
                     ];
@@ -198,7 +198,7 @@ class TransactionService
                         'from' => $tx->assetFrom,
                         'to' => $tx->assetTo,
                         'date' => $tx->executedAt->format('Y-m-d'),
-                        'soldQuantity' => round($soldQty, 2),
+                        'soldQuantity' => round($soldQty, 8),
                         'proceeds' => round($zarProceeds, 2),
                         'cost' => $result['cost'],
                         'gain' => round($gain, 2),
