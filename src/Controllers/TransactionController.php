@@ -1,72 +1,84 @@
 <?php
 
+namespace App\Controllers;
+
+use App\Services\TransactionService;
+use App\Models\Transaction;
+use App\Middleware\AuthMiddleware;
+
 class TransactionController
 {
-    protected $gateway;
-    protected $validator;
-    public function __construct($gateway, TransactionRequestValidator $validator) 
+    public function __construct()
     {
-        $this->gateway = $gateway;
-        $this->validator = $validator;
+        AuthMiddleware::handle();
     }
 
-    public function index(): void
+    public function addTransactions(): void
     {
-        $transactions = $this->gateway->getAll();
-        $this->sendResponse(200, $transactions);
-    }
+        $rawInput = file_get_contents('php://input');
+        $transactions = json_decode($rawInput, true);
 
-    public function show(int $id): void
-    {
-        $transaction = $this->gateway->getById($id);
-
-        if (!$transaction) {
-            $this->sendResponse(404, ['error' => 'Transaction not found']);
-            return;
-        }
-
-        $this->sendResponse(200, $transaction);
-    }
-
-    public function store(): void
-    {
-        $data = json_decode(file_get_contents('php://input'), true);
-
-        if (!$data) {
-            $this->sendResponse(400, ['error' => 'Invalid JSON payload']);
+        if (!is_array($transactions)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid JSON array']);
             return;
         }
 
         try {
-            $this->validator->validate($data);
-            $id = $this->gateway->create($data);
-            $this->sendResponse(201, ['id' => $id]);
-        } catch (ValidationException $ex) {
-            $this->sendResponse(422, ['error' => $ex->getMessage()]);
+            foreach ($transactions as $data) {
+                Transaction::validate($data);
+            }
+
+            TransactionService::createTransactions($transactions);
+
+            http_response_code(201);
+            echo json_encode(['success' => true, 'message' => 'Transactions validated and created']);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Server Error: ' . $e->getMessage()]);
         }
     }
 
-    public function remove(int $id): void
+    public function getTransactions(): void
     {
-        $transaction = $this->gateway->getById($id);
-
-        if (!$transaction) {
-            $this->sendResponse(404, ['error' => 'Transaction not found']);
-            return;
-        }
-
-        try {
-            $this->gateway->delete($id);
-            $this->sendResponse(200, ['message' => 'Transaction deleted successfully']);
-        } catch (Exception $ex) {
-            $this->sendResponse(500, ['error' => 'Failed to delete transaction']);
-        }
+        $transactions = TransactionService::getAllTransactions();
+        
+        http_response_code(200);
+        echo json_encode($transactions, JSON_PRETTY_PRINT);
     }
 
-    private function sendResponse(int $statusCode, array $payload): void
+    public function getFifoCalculation(): void
     {
-        http_response_code($statusCode);
-        header('Content-Type: application/json');
-        echo json_encode($payload, JSON_PRETTY_PRINT, JSON_UNESCAPED_SLASHES);
+        $transactions = TransactionService::getAllTransactions();
+        $fifoCalculation = TransactionService::calculateFIFO($transactions);
+
+        http_response_code(200);
+        echo json_encode($fifoCalculation, JSON_PRETTY_PRINT);
+    }
+
+    public function getTaxYearReport(array $params)
+    {
+        $year = (int) $params['year'];
+
+        if ($year < 2000 || $year > 2100) {
+            http_response_code(400);
+            return ['error' => 'Invalid tax year'];
+        }
+
+        $report = TransactionService::getTaxYearReport($year);
+
+        http_response_code(200);
+        echo json_encode($report, JSON_PRETTY_PRINT);
+    }
+
+    public function deleteAllTransactions(): void
+    {
+        TransactionService::deleteAllTransactions();
+
+        http_response_code(200);
+        echo json_encode(['success' => true, 'message' => 'All transactions deleted successfully']);
     }
 }

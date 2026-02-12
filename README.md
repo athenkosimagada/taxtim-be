@@ -1,196 +1,176 @@
-# Taxtim BE – Crypto Tax Backend API
-
-**NOTE:** I DON'T KNOW IF IT HAPPEN ONLY TO MY PC OR NOT BUT WHEN I MAKE CHANGES AND SAVE CODE, I DON'T HAVE TO RESTART THE CONTAINER AGAIN TO RUN THE PROJECT, IT ALSO UPDATE THE CONTAINER RUNNING WITH THE CHNAGES YOU MADE. SO NO NEED TO STROP THE CONTAINER.
-
-A **PHP 8.3 backend API** for managing crypto transactions.
-The project is designed as a **Docker-first REST-style service** and exposes a `/transactions` endpoint for creating and retrieving crypto transactions stored in a **MySQL database**.
-
-The API is now fully connected to MySQL and **no longer uses dummy (hard-coded) data**.
+# Transactions API Documentation (Complete with Auth)
 
 ---
 
-## 🚀 Project Overview
+## 0. User Registration
 
-This project demonstrates:
+- **URL:** `/api/register`
+- **Method:** `POST`
+- **Headers:** `Content-Type: application/json`
+- **Body:** JSON object with user registration details:
 
-- A simple PHP JSON API
-- Docker Compose–based local development
-- MySQL container integration
-- Environment-based configuration using `.env`
-- Database-backed CRUD operations
-- API testing using `curl`
+| Field      | Type   | Description            |
+| ---------- | ------ | ---------------------- |
+| `email`    | string | User email (unique)    |
+| `password` | string | User password (secure) |
 
----
-
-## 🧱 Tech Stack
-
-- **PHP 8.3** (CLI server)
-- **MySQL 8** (Docker container)
-- **Docker & Docker Compose**
-- **PDO (pdo_mysql)**
-- **curl** for endpoint testing
-
----
-
-## 📂 Project Structure
-
-```text
-taxtim-be/
-├── docker-compose.yml
-├── Dockerfile
-├── index.php
-├── .env
-├── src/
-│   ├──
-│   ├──
-│   ├──
-│   └──
-├── init/
-│   └── init.sql
-└── README.md
-```
-
----
-
-## 🔐 Environment Configuration (.env)
-
-The project uses a `.env` file to define configuration values shared between **Docker Compose** and the **PHP application**.
-
-Docker Compose automatically loads the `.env` file from the project root.
-
-### Example `.env`
-
-```env
-# PHP server config
-PHP_HOST=0.0.0.0
-PHP_PORT=8000
-
-# MySQL config
-MYSQL_ROOT_PASSWORD=rootpassword
-MYSQL_DATABASE=crypto_tax
-MYSQL_USER=crypto_user
-MYSQL_PASSWORD=crypto_password
-MYSQL_HOST=mysql
-MYSQL_PORT=3306
-```
-
-> Inside Docker, `MYSQL_HOST` must be `mysql` (the service name), **not** `localhost`.
-
----
-
-## 🐳 Running the Project with Docker
-
-### Requirements
-
-- Docker Desktop
-- Docker Compose v2+
-
-No local PHP or MySQL installation is required.
-
----
-
-### Build and Start Containers
-
-From the project root directory:
+**Example curl:**
 
 ```bash
-docker compose up --build
-```
-
-This will:
-
-- Build PHP 8.3 with `pdo_mysql`
-- Start MySQL 8
-- Create the `crypto_tax` database and tables using `init/init.sql`
-- Expose the API at **[http://localhost:8000](http://localhost:8000)**
-- **Note:** Wait until the server starts to test the routes
-
----
-
-## 🌐 API Base URL
-
-```text
-http://localhost:8000
+curl -X POST http://localhost:8000/api/register \
+-H "Content-Type: application/json" \
+-d '{
+  "email": "user@example.com",
+  "password": "Password123!"
+}'
 ```
 
 ---
 
-## 🧪 Testing the API with curl
+## 1. User Login
 
-### GET /transactions
+- **URL:** `/api/login`
+- **Method:** `POST`
+- **Headers:** `Content-Type: application/json`
+- **Body:** JSON object with login credentials:
 
-Fetch all transactions stored in the database.
+| Field      | Type   | Description           |
+| ---------- | ------ | --------------------- |
+| `email`    | string | Registered user email |
+| `password` | string | User password         |
+
+- **Response:** Returns a JWT token on successful login.
+
+**Example curl:**
 
 ```bash
-curl http://localhost:8000/transactions
+curl -X POST http://localhost:8000/api/login \
+-H "Content-Type: application/json" \
+-d '{
+  "email": "user@example.com",
+  "password": "Password123!"
+}'
 ```
 
-#### Example Response
+---
 
-```json
-[
+## 2. Get All Transactions
+
+- **URL:** `/api/transactions`
+- **Method:** `GET`
+- **Headers:** `Authorization: Bearer {JWT_TOKEN}`
+- **Description:** Retrieve all transactions for the authenticated user.
+
+**Example curl:**
+
+```bash
+curl http://localhost:8000/api/transactions \
+-H "Authorization: Bearer {JWT_TOKEN}"
+```
+
+---
+
+## 3. Add Transactions
+
+- **URL:** `/api/transactions`
+- **Method:** `POST`
+- **Headers:**
+  - `Authorization: Bearer {JWT_TOKEN}`
+  - `Content-Type: application/json`
+
+- **Body:** JSON array of transaction objects with these fields:
+
+| Field          | Type   | Description                                           |
+| -------------- | ------ | ----------------------------------------------------- |
+| `date`         | string | Transaction date (YYYY-MM-DD)                         |
+| `type`         | string | Transaction type (`BUY`, `SELL`, `TRADE`, `TRANSFER`) |
+| `sellCoin`     | string | Coin sold or currency paid                            |
+| `sellAmount`   | float  | Amount sold or currency paid                          |
+| `buyCoin`      | string | Coin bought or currency received                      |
+| `buyAmount`    | float  | Amount bought or currency received                    |
+| `pricePerCoin` | float  | Price per unit of coin (in `sellCoin` currency)       |
+
+**Example curl:**
+
+```bash
+curl -X POST http://localhost:8000/api/transactions \
+-H "Authorization: Bearer {JWT_TOKEN}" \
+-H "Content-Type: application/json" \
+-d '[
   {
-    "id": 1,
-    "type": "buy",
-    "coin": "BTC",
-    "amount": 1,
-    "price": 10000,
-    "created_at": "2023-01-01 00:00:00"
+    "date": "2024-11-01",
+    "type": "BUY",
+    "sellCoin": "ZAR",
+    "sellAmount": 8000,
+    "buyCoin": "BTC",
+    "buyAmount": 0.1,
+    "pricePerCoin": 80000
+  },
+  {
+    "date": "2025-05-05",
+    "type": "TRADE",
+    "sellCoin": "BTC",
+    "sellAmount": 0.133,
+    "buyCoin": "ETH",
+    "buyAmount": 10,
+    "pricePerCoin": 2000
   }
-]
+]'
 ```
 
 ---
 
-### POST /transactions
+## 4. Calculate FIFO and Capital Gains
 
-Create a new transaction.
+- **URL:** `/api/transactions/calculate`
+- **Method:** `GET`
+- **Headers:** `Authorization: Bearer {JWT_TOKEN}`
+- **Description:** Runs FIFO calculations on all transactions for the authenticated user and returns balances, transaction calculations, capital gains by tax year, and base cost snapshots.
+
+**Example curl:**
 
 ```bash
-curl -X POST http://localhost:8000/transactions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "buy",
-    "coin": "ETH",
-    "amount": 2.5,
-    "price": 1800
-  }'
+curl http://localhost:8000/api/transactions/calculate \
+-H "Authorization: Bearer {JWT_TOKEN}"
 ```
 
-#### Expected Response
+---
 
-```json
-{
-  "message": "Transaction created",
-  "id": 3
-}
+## 5. Delete All Transactions
+
+- **URL:** `/api/transactions`
+- **Method:** `DELETE`
+- **Headers:** `Authorization: Bearer {JWT_TOKEN}`
+- **Description:** Deletes all transactions for the authenticated user.
+
+**Example curl:**
+
+```bash
+curl -X DELETE http://localhost:8000/api/transactions \
+-H "Authorization: Bearer {JWT_TOKEN}"
 ```
 
-The transaction is immediately persisted in MySQL and will appear in subsequent `GET /transactions` requests.
+---
+
+## 6. Get Tax Year Report
+
+- **URL:** `/api/reports/tax-year/{year}`
+- **Method:** `GET`
+- **Headers:** `Authorization: Bearer {JWT_TOKEN}`
+- **Description:** Retrieves a capital gains report for a specific tax year for the authenticated user. Replace `{year}` with the desired year (e.g., 2025).
+
+**Example curl:**
+
+```bash
+curl http://localhost:8000/api/reports/tax-year/2025 \
+-H "Authorization: Bearer {JWT_TOKEN}"
+```
 
 ---
 
-## 🗄️ Database Initialization
+### Notes
 
-The database schema is created automatically using Docker:
-
-- `init/init.sql` is executed on first container startup
-- Tables are only created if they do not already exist
-
-This ensures safe restarts without data loss.
-
----
-
-## 🔮 Next Development Steps
-
-- Add PUT / DELETE endpoints
-- Add input validation
-- Add authentication (JWT)
-- Add pagination & filtering
-- Add database migrations
-
----
-
-## 📜 License
-
-MIT License
+- All endpoints except `/api/register` and `/api/login` require a valid JWT token passed in the `Authorization` header.
+- Tokens expire based on your JWT settings (e.g., expiration time in your JwtHelper).
+- Ensure the token is included exactly as: `Authorization: Bearer {token}`.
+- Use `Content-Type: application/json` for requests with JSON bodies.
