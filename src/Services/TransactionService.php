@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Transaction;
 use App\Repositories\TransactionRepository;
 use App\Utils\FifoHelper;
+use App\Enums\TransactionType;
 
 
 class TransactionService
@@ -12,71 +13,21 @@ class TransactionService
     public static function  createTransactions(array $transactions): void
     {
         foreach ($transactions as $data) {
-            // Validate required fields
-            self::validateTransaction($data);
-            
             $tx = new Transaction();
             
-            $tx->wallet = $data['wallet'];
-            $tx->type = strtoupper($data['type']);
+            $tx->date = new \DateTime($data['date']);
+            $tx->type = TransactionType::from(strtoupper($data['type']));
 
-            $tx->assetFrom = $data['assetFrom'] ?? null;
-            $tx->assetTo = $data['assetTo'] ?? null;
+            $tx->sellCoin = $data['sellCoin'];
+            $tx->sellAmount = $data['sellAmount'];
 
-            $tx->quantity = (float)($data['quantity']);
-            $tx->unitPriceZar = (float)($data['unitPriceZar']);
-            $tx->feeZar = (float)($data['feeZar'] ?? 0);
+            $tx->buyCoin = $data['buyCoin'];
+            $tx->buyAmount = $data['buyAmount'];
 
-            $tx->assetFromMarketPriceZar =
-                $data['assetFromMarketPriceZar'] ?? null;
-
-            $tx->executedAt = new \DateTime($data['executedAt']);
+            $tx->pricePerCoin = $data['pricePerCoin'];
+            $tx->fiatCurrency = $data['fiatCurrency'] ?? 'ZAR';
 
             TransactionRepository::create($tx);
-        }
-    }
-
-    private static function validateTransaction(array $data): void
-    {
-        $type = strtoupper($data['type'] ?? '');
-        
-        if (!in_array($type, ['BUY', 'SELL', 'TRADE'])) {
-            throw new \Exception("Invalid transaction type: {$type}. Must be BUY, SELL, or TRADE.");
-        }
-
-        if (!isset($data['quantity']) || (float)$data['quantity'] <= 0) {
-            throw new \Exception("Quantity must be a positive number.");
-        }
-
-        if (!isset($data['unitPriceZar']) || (float)$data['unitPriceZar'] < 0) {
-            throw new \Exception("Unit price must be zero or positive.");
-        }
-
-        // SELL-specific validation
-        if ($type === 'SELL') {
-            if (empty($data['assetFrom'])) {
-                throw new \Exception("SELL transactions require assetFrom to specify which asset is being sold.");
-            }
-        }
-
-        // BUY-specific validation
-        if ($type === 'BUY') {
-            if (empty($data['assetTo'])) {
-                throw new \Exception("BUY transactions require assetTo to specify which asset is being purchased.");
-            }
-        }
-
-        // TRADE-specific validation
-        if ($type === 'TRADE') {
-            if (empty($data['assetFrom'])) {
-                throw new \Exception("TRADE transactions require assetFrom.");
-            }
-            if (empty($data['assetTo'])) {
-                throw new \Exception("TRADE transactions require assetTo.");
-            }
-            if (!isset($data['assetFromMarketPriceZar']) || (float)$data['assetFromMarketPriceZar'] <= 0) {
-                throw new \Exception("TRADE transactions require a positive assetFromMarketPriceZar.");
-            }
         }
     }
 
@@ -113,206 +64,75 @@ class TransactionService
 
     public static function calculateFIFO(array $transactions): array
     {
-        $balances = []; 
+        $balances = [];
         $capitalGains = [];
-        $calculationRows = [];
-
+        $rows = [];
         $baseCostSnapshots = [];
-        $currentTaxYear = null;
 
-        usort($transactions, fn ($a, $b) =>
-            $a->executedAt <=> $b->executedAt
-        );
+        usort($transactions, fn ($a, $b) => $a->date <=> $b->date);
         
         foreach ($transactions as $tx) {
-            $taxYear = FifoHelper::getTaxYear($tx->executedAt);
-
-            if ($currentTaxYear !== null && $taxYear !== $currentTaxYear) {
-                $baseCostSnapshots[$currentTaxYear] =
-                    self::calculateBaseCosts($balances);
-            }
-
-            $currentTaxYear = $taxYear;
+            $taxYear = FifoHelper::getTaxYear($tx->date);
 
             switch ($tx->type) {
-                case 'BUY':
-                    $balances[$tx->assetTo][] = [
-                        'quantity' => $tx->quantity,
-                        'unitPriceZar' => $tx->unitPriceZar,
-                        'date' => $tx->executedAt->format('Y-m-d'),
+                case TransactionType::BUY:
+                    $balances[$tx->buyCoin][] = [
+                        'qty' => (float)$tx->buyAmount,
+                        'price' => (float)$tx->pricePerCoin,
+                        'date' => $tx->date->format('Y-m-d')
                     ];
+
+                    $rows[] = FifoHelper::formatRow($tx, 0, 0, []);
                     break;
-                case 'SELL':
-                    $result = self::fifoSell(
-                        $tx->assetFrom,
-                        $tx->quantity,
+                case TransactionType::SELL:
+                    $proceeds = (float)$tx->sellAmount * (float)$tx->pricePerCoin;
+
+                    $fifo = FifoHelper::fifoSell(
+                        $tx->sellCoin,
+                        $tx->sellAmount,
                         $balances
                     );
 
-                    $proceeds = $tx->quantity * $tx->unitPriceZar;
-                    $gain = $proceeds - $result['cost'];
+                    $gain = $proceeds - $fifo['cost'];
 
-                    $capitalGains[$taxYear][$tx->assetFrom] =
-                        ($capitalGains[$taxYear][$tx->assetFrom] ?? 0) + $gain;
+                    $capitalGains[$taxYear][$tx->sellCoin] =
+                        ($capitalGains[$taxYear][$tx->sellCoin] ?? 0) + $gain;
 
-                    $calculationRows[] = [
-                        'type' => 'SELL',
-                        'asset' => $tx->assetFrom,
-                        'date' => $tx->executedAt->format('Y-m-d'),
-                        'quantity' => $tx->quantity,
-                        'proceeds' => round($proceeds, 2),
-                        'cost' => $result['cost'],
-                        'gain' => round($gain, 2),
-                        'lots' => $result['lots'],
-                        'taxYear' => $taxYear,
-                    ];
+                    $rows[] = FifoHelper::formatRow($tx, $proceeds, $gain, $fifo['lots']);
                     break;
 
-                case 'TRADE':
-                    if ($tx->assetFromMarketPriceZar <= 0) {
-                        throw new \Exception('assetFromMarketPriceZar is required for TRADE');
-                    }
+                case TransactionType::TRADE:
+                    $proceeds = (float)$tx->buyAmount * (float)$tx->pricePerCoin;
 
-                    $zarProceeds = $tx->quantity * $tx->unitPriceZar;
-                    $soldQty = $zarProceeds / $tx->assetFromMarketPriceZar;
-
-                    $result = self::fifoSell(
-                        $tx->assetFrom,
-                        $soldQty,
+                    $fifo = FifoHelper::fifoSell(
+                        $tx->sellCoin,
+                        $tx->sellAmount,
                         $balances
                     );
 
-                    $gain = $zarProceeds - $result['cost'];
+                    $gain = $proceeds - $fifo['cost'];
 
-                    $capitalGains[$taxYear][$tx->assetFrom] =
-                        ($capitalGains[$taxYear][$tx->assetFrom] ?? 0) + $gain;
+                    $capitalGains[$taxYear][$tx->sellCoin] =
+                        ($capitalGains[$taxYear][$tx->sellCoin] ?? 0) + $gain;
 
-                    $balances[$tx->assetTo][] = [
-                        'quantity' => $tx->quantity,
-                        'unitPriceZar' => $tx->unitPriceZar,
-                        'date' => $tx->executedAt->format('Y-m-d'),
+                    $balances[$tx->buyCoin][] = [
+                        'qty' => (float)$tx->buyAmount,
+                        'price' => (float)$tx->pricePerCoin,
+                        'date' => $tx->date->format('Y-m-d')
                     ];
 
-                    $calculationRows[] = [
-                        'type' => 'TRADE',
-                        'from' => $tx->assetFrom,
-                        'to' => $tx->assetTo,
-                        'date' => $tx->executedAt->format('Y-m-d'),
-                        'soldQuantity' => round($soldQty, 8),
-                        'proceeds' => round($zarProceeds, 2),
-                        'cost' => $result['cost'],
-                        'gain' => round($gain, 2),
-                        'lots' => $result['lots'],
-                        'taxYear' => $taxYear,
-                    ];
+                    $rows[] = FifoHelper::formatRow($tx, $proceeds, $gain, $fifo['lots']);
                     break;
             }
-        }
 
-        if ($currentTaxYear !== null) {
-            $baseCostSnapshots[$currentTaxYear] =
-                self::calculateBaseCosts($balances);
-        }
-
-        foreach ($capitalGains as $year => $assets) {
-            $total = '0';
-
-            foreach ($assets as $asset => $gain) {
-                if ($asset === 'TOTAL') continue;
-
-                $capitalGains[$year][$asset] = round($gain, 2);
-                $total = \bcadd($total, (string)$gain, 8);
-            }
-
-            $capitalGains[$year]['TOTAL'] = round((float)$total, 2);
+            $baseCostSnapshots[$taxYear] = FifoHelper::calculateBaseCosts($balances);
         }
 
         return [
-            'transactions' => $transactions,
-            'calculations' => $calculationRows,
-            'balances' => $balances,
-            'baseCosts' => self::calculateBaseCosts($balances),
-            'baseCostSnapshots' => $baseCostSnapshots,
+            'balances' => FifoHelper::formatBalances($balances),
+            'calculations' => $rows,
             'capitalGains' => $capitalGains,
+            'baseCostSnapshots' => $baseCostSnapshots
         ];
-    }
-
-    private static function fifoSell(string $asset, float $qty, array &$balances): array
-    {
-        if (!isset($balances[$asset]) || empty($balances[$asset])) {
-            throw new \Exception("Cannot sell $asset: no balance available. You must buy before you can sell.");
-        }
-
-        // Calculate total available balance
-        $totalAvailable = array_reduce($balances[$asset], fn($sum, $lot) => $sum + $lot['quantity'], 0);
-        
-        // Allow for small floating point differences (0.00000001 tolerance)
-        if ($qty > $totalAvailable + 0.00000001) {
-            throw new \Exception(
-                "Insufficient balance for $asset. Attempting to sell " . 
-                number_format($qty, 8) . " but only " . 
-                number_format($totalAvailable, 8) . " available."
-            );
-        }
-
-        $cost = '0';
-        $lotsUsed = [];
-
-        while ($qty > 0.00000001) { // Use tolerance for floating point comparison
-            if (empty($balances[$asset])) {
-                break; // All lots consumed
-            }
-            
-            $lot = &$balances[$asset][0];
-
-            $usedQty = min($qty, $lot['quantity']);
-            $usedCost = \bcmul((string)$usedQty, (string)$lot['unitPriceZar'], 8);
-
-            $lotsUsed[] = [
-                'asset' => $asset,
-                'quantity' => round($usedQty, 8),
-                'unitPriceZar' => $lot['unitPriceZar'],
-                'date' => $lot['date'],
-                'cost' => round((float)$usedCost, 2),
-            ];
-
-            $cost = \bcadd($cost, $usedCost, 8);
-            
-            $lot['quantity'] -= $usedQty;
-            $qty -= $usedQty;
-
-            // Remove lot if fully consumed (with tolerance)
-            if ($lot['quantity'] <= 0.00000001) {
-                array_shift($balances[$asset]);
-            }
-        }
-
-        return [
-            'cost' => round((float)$cost, 2),
-            'rawCost' => $cost,
-            'lots' => $lotsUsed
-        ];
-    }
-
-    private static function calculateBaseCosts(array $balances): array
-    {
-        $out = [];
-
-        foreach ($balances as $asset => $lots) {
-            $qty = 0;
-            $cost = 0;
-
-            foreach ($lots as $lot) {
-                $qty += $lot['quantity'];
-                $cost += $lot['quantity'] * $lot['unitPriceZar'];
-            }
-
-            $out[$asset] = [
-                'quantity' => round($qty, 8),
-                'cost' => round($cost, 2),
-            ];
-        }
-
-        return $out;
     }
 }

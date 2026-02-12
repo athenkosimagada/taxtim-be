@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Database\Database;
 use App\Models\Transaction;
+use App\Enums\TransactionType;
 use PDO;
 
 class TransactionRepository 
@@ -13,26 +14,35 @@ class TransactionRepository
         $db = Database::connection();
         $stmt = $db->prepare("
             INSERT INTO transactions (
-                wallet, type, asset_from, asset_to,
-                quantity, unit_price_zar, fee_zar,
-                asset_from_market_price_zar, executed_at
+                date, 
+                type,
+                sell_coin,
+                sell_amount,
+                buy_coin,
+                buy_amount,
+                price_per_coin,
+                fiat_currency
             ) VALUES (
-                :wallet, :type, :asset_from, :asset_to,
-                :quantity, :unit_price_zar, :fee_zar,
-                :asset_from_market_price_zar, :executed_at
+                :date,
+                :type,
+                :sell_coin,
+                :sell_amount,
+                :buy_coin,
+                :buy_amount,
+                :price_per_coin,
+                :fiat_currency
             )
         ");
 
         $stmt->execute([
-            ':wallet' => $tx->wallet,
-            ':type' => $tx->type,
-            ':asset_from' => $tx->assetFrom,
-            ':asset_to' => $tx->assetTo,
-            ':quantity' => $tx->quantity,
-            ':unit_price_zar' => $tx->unitPriceZar,
-            ':fee_zar' => $tx->feeZar,
-            ':asset_from_market_price_zar' => $tx->assetFromMarketPriceZar,
-            ':executed_at' => $tx->executedAt->format('Y-m-d H:i:s'),
+            ':date' => $tx->date->format('Y-m-d'),
+            ':type' => $tx->type->value,
+            ':sell_coin' => $tx->sellCoin,
+            ':sell_amount' => $tx->sellAmount,
+            ':buy_coin' => $tx->buyCoin,
+            ':buy_amount' => $tx->buyAmount,
+            ':price_per_coin' => $tx->pricePerCoin,
+            ':fiat_currency' => $tx->fiatCurrency
         ]);
 
         return (int)$db->lastInsertId();
@@ -41,29 +51,26 @@ class TransactionRepository
     public static function getAll(): array
     {
         $db = Database::connection();
-        $stmt = $db->query("SELECT * FROM transactions ORDER BY executed_at ASC");
+        $stmt = $db->query("SELECT * FROM transactions ORDER BY date ASC");
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $transactions = [];
 
         foreach ($rows as $row) {
             $tx = new Transaction();
+
+            $tx->date = new \DateTime($row['date']);
             
-            $tx->wallet = $row['wallet'];
-            $tx->type = $row['type'];
+            $tx->type = TransactionType::from($row['type']);;
 
-            $tx->assetFrom = $row['asset_from'];
-            $tx->assetTo = $row['asset_to'];
+            $tx->sellCoin = $row['sell_coin'];
+            $tx->sellAmount = $row['sell_amount'];
 
-            $tx->quantity = (float)$row['quantity'];
-            $tx->unitPriceZar = (float)$row['unit_price_zar'];
-            $tx->feeZar = (float)$row['fee_zar'];
+            $tx->buyCoin = $row['buy_coin'];
+            $tx->buyAmount = $row['buy_amount'];
 
-            $tx->assetFromMarketPriceZar = $row['asset_from_market_price_zar']
-                ? (float)$row['asset_from_market_price_zar']
-                : null;
-
-            $tx->executedAt = new \DateTime($row['executed_at']);
+            $tx->pricePerCoin = $row['price_per_coin'];
+            $tx->fiatCurrency = $row['fiat_currency'];
 
             $transactions[] = $tx;
         }

@@ -1,23 +1,33 @@
 CREATE TABLE IF NOT EXISTS transactions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 
-    wallet VARCHAR(50) DEFAULT 'default',
+    date DATETIME NOT NULL,
 
-    type ENUM('BUY','SELL','TRADE') NOT NULL,
+    type ENUM('BUY', 'SELL', 'TRADE', 'TRANSFER') NOT NULL,
 
-    asset_from VARCHAR(10),
-    asset_to   VARCHAR(10),
+    sell_coin VARCHAR(10) NOT NULL,
+    sell_amount DECIMAL(18,8) NOT NULL,
 
-    quantity DECIMAL(18,8) NOT NULL,
-    unit_price_zar DECIMAL(18,2) NOT NULL,
-    fee_zar DECIMAL(18,2) DEFAULT 0,
+    buy_coin VARCHAR(10) NOT NULL,
+    buy_amount DECIMAL(18,8) NOT NULL,
 
-    asset_from_market_price_zar DECIMAL(18,2) NULL,
+    price_per_coin DECIMAL(18,2) NOT NULL,
+    fiat_currency VARCHAR(5) DEFAULT 'ZAR'
+) ENGINE=InnoDB;
 
-    executed_at DATE NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+CREATE INDEX idx_transactions_date ON transactions (date);
+CREATE INDEX idx_transactions_type ON transactions (type);
+CREATE INDEX idx_transactions_buy_coin ON transactions (buy_coin);
+CREATE INDEX idx_transactions_sell_coin ON transactions (sell_coin);
+CREATE INDEX idx_transactions_buy_coin_date ON transactions (buy_coin, date DESC);
+CREATE INDEX idx_transactions_type_date ON transactions (type, date DESC);
 
-    INDEX idx_wallet (wallet),
-    INDEX idx_type (type),
-    INDEX idx_executed_at (executed_at)
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_users_email ON users (email);
+CREATE INDEX idx_users_created_at ON users (created_at DESC);
